@@ -128,7 +128,9 @@ make install
 
 # Build harness for Part C with FULL ASAN+UBSAN
 echo "Building harness for Part C with ASAN+UBSAN..."
-AFL_USE_ASAN=1 AFL_USE_UBSAN=1 "${AFLPLUSPLUS_DIR}/afl-clang-fast" \
+export AFL_USE_ASAN=1
+export AFL_USE_UBSAN=1
+"${AFLPLUSPLUS_DIR}/afl-clang-fast" \
     -fsanitize=address,undefined \
     -fno-omit-frame-pointer \
     -g -O1 \
@@ -138,6 +140,8 @@ AFL_USE_ASAN=1 AFL_USE_UBSAN=1 "${AFLPLUSPLUS_DIR}/afl-clang-fast" \
     "${SCRIPT_DIR}/harness.c" \
     -lpng -lz \
     -o "${BUILD_DIR}/harness-c-linux"
+unset AFL_USE_ASAN
+unset AFL_USE_UBSAN
 
 echo "Part C binary created: ${BUILD_DIR}/harness-c-linux (with ASAN+UBSAN)"
 
