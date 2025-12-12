@@ -1,6 +1,7 @@
 #!/bin/bash
 
-SEEDS_DIR="/Users/jorm/Documents/ecs160-hw3/build/seeds"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SEEDS_DIR="${SCRIPT_DIR}/build/seeds"
 mkdir -p "${SEEDS_DIR}"
 
 echo "Downloading sample PNG files for fuzzing seeds..."
