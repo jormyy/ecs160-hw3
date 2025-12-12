@@ -17,7 +17,7 @@ int main(int argc, char **argv) {
         return 0;
     }
 
-    /* Verify PNG signature */
+    // verify png signature
     unsigned char header[8];
     if (fread(header, 1, 8, fp) != 8) {
         fclose(fp);
@@ -28,14 +28,12 @@ int main(int argc, char **argv) {
         return 0;
     }
 
-    /* Create read struct */
     png_structp png = png_create_read_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
     if (!png) {
         fclose(fp);
         return 0;
     }
 
-    /* Create info struct */
     png_infop info = png_create_info_struct(png);
     if (!info) {
         png_destroy_read_struct(&png, NULL, NULL);
@@ -43,63 +41,51 @@ int main(int argc, char **argv) {
         return 0;
     }
 
-    /* Set up error handling */
+    // set up error handling
     if (setjmp(png_jmpbuf(png))) {
         png_destroy_read_struct(&png, &info, NULL);
         fclose(fp);
         return 0;
     }
 
-    /* Initialize I/O */
     png_init_io(png, fp);
     png_set_sig_bytes(png, 8);
 
-    /* Read PNG info */
     png_read_info(png, info);
 
-    /* Get image attributes */
+    // img attributes
     int width = png_get_image_width(png, info);
     int height = png_get_image_height(png, info);
     png_byte color_type = png_get_color_type(png, info);
     png_byte bit_depth = png_get_bit_depth(png, info);
     int channels = png_get_channels(png, info);
 
-    /* Apply various transformations to exercise the API */
-
-    /* Expand paletted colors into true RGB triplets */
     if (color_type == PNG_COLOR_TYPE_PALETTE)
         png_set_palette_to_rgb(png);
 
-    /* Expand grayscale images to 8 bits from 1, 2, or 4 bits per pixel */
     if (color_type == PNG_COLOR_TYPE_GRAY && bit_depth < 8)
         png_set_expand_gray_1_2_4_to_8(png);
 
-    /* Expand paletted or RGB images with transparency to full alpha */
     if (png_get_valid(png, info, PNG_INFO_tRNS))
         png_set_tRNS_to_alpha(png);
 
-    /* Convert grayscale to RGB */
     if (color_type == PNG_COLOR_TYPE_GRAY ||
         color_type == PNG_COLOR_TYPE_GRAY_ALPHA)
         png_set_gray_to_rgb(png);
 
-    /* Add filler (alpha) byte to RGB */
     if (color_type == PNG_COLOR_TYPE_RGB ||
         color_type == PNG_COLOR_TYPE_GRAY)
         png_set_filler(png, 0xFF, PNG_FILLER_AFTER);
 
-    /* Scale 16-bit depth down to 8-bit */
     if (bit_depth == 16)
         png_set_scale_16(png);
 
-    /* Update info structure after transformations */
     png_read_update_info(png, info);
 
-    /* Get updated values */
     int rowbytes = png_get_rowbytes(png, info);
     channels = png_get_channels(png, info);
 
-    /* Allocate memory for image data */
+    // img data
     png_bytep *row_pointers = (png_bytep *)malloc(sizeof(png_bytep) * height);
     if (!row_pointers) {
         png_destroy_read_struct(&png, &info, NULL);
@@ -119,16 +105,12 @@ int main(int argc, char **argv) {
         }
     }
 
-    /* Read the image data */
     png_read_image(png, row_pointers);
 
-    /* Read end info */
     png_read_end(png, info);
 
-    /* Close input file */
     fclose(fp);
 
-    /* Optionally write output file to exercise write API */
     if (output_file) {
         FILE *out = fopen(output_file, "wb");
         if (out) {
@@ -142,7 +124,6 @@ int main(int argc, char **argv) {
                 } else {
                     png_init_io(wpng, out);
 
-                    /* Write header with RGBA format */
                     png_set_IHDR(wpng, winfo,
                                  width, height, 8,
                                  PNG_COLOR_TYPE_RGBA,
@@ -164,7 +145,6 @@ int main(int argc, char **argv) {
         }
     }
 
-    /* Cleanup */
     for (int y = 0; y < height; y++)
         free(row_pointers[y]);
     free(row_pointers);
