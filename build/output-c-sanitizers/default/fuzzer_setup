@@ -1,0 +1,10 @@
+# environment variables:
+AFL_CUSTOM_INFO_PROGRAM=/home/jorm/ecs160-hw3/build/harness-c-linux
+AFL_CUSTOM_INFO_PROGRAM_ARGV=@@ /tmp/out.png
+AFL_CUSTOM_INFO_OUT=/home/jorm/ecs160-hw3/build/output-c-sanitizers/default
+AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES=1
+AFL_SKIP_CPUFREQ=1
+AFL_USE_ASAN=1
+AFL_USE_UBSAN=1
+# command line:
+'/home/jorm/ecs160-hw3/build/AFLplusplus/afl-fuzz' '-i' '/home/jorm/ecs160-hw3/build/seeds' '-o' '/home/jorm/ecs160-hw3/build/output-c-sanitizers' '-V' '3600' '-m' 'none' '--' '/home/jorm/ecs160-hw3/build/harness-c-linux' '@@' '/tmp/out.png'
