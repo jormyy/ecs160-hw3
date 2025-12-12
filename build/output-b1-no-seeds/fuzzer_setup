@@ -1,0 +1,8 @@
+# environment variables:
+AFL_CUSTOM_INFO_PROGRAM=/Users/jorm/Documents/ecs160-hw3/build/harness-crash-b
+AFL_CUSTOM_INFO_PROGRAM_ARGV=@@
+AFL_CUSTOM_INFO_OUT=/Users/jorm/Documents/ecs160-hw3/build/output-b1-no-seeds
+AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES=1
+AFL_SKIP_CPUFREQ=1
+# command line:
+'/Users/jorm/Documents/ecs160-hw3/build/AFLplusplus/afl-fuzz' '-i' '/Users/jorm/Documents/ecs160-hw3/build/empty-seeds' '-o' '/Users/jorm/Documents/ecs160-hw3/build/output-b1-no-seeds' '-n' '--' '/Users/jorm/Documents/ecs160-hw3/build/harness-crash-b' '@@'

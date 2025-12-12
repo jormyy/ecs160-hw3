@@ -28,20 +28,29 @@ fi
 
 echo "Building AFL++..."
 make clean || true
+# Set LLVM_CONFIG to use Homebrew LLVM if available
+if [ -x "/opt/homebrew/opt/llvm/bin/llvm-config" ]; then
+    export LLVM_CONFIG=/opt/homebrew/opt/llvm/bin/llvm-config
+fi
 make -j$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 4)
 cd "${SCRIPT_DIR}"
 
 # Set up AFL++ environment variables
 export PATH="${AFLPLUSPLUS_DIR}:${PATH}"
-export AFL_CC="${AFLPLUSPLUS_DIR}/afl-cc"
-export AFL_CXX="${AFLPLUSPLUS_DIR}/afl-c++"
+export AFL_CC="${AFLPLUSPLUS_DIR}/afl-clang-fast"
+export AFL_CXX="${AFLPLUSPLUS_DIR}/afl-clang-fast++"
+# AFL configuration - these settings help with macOS compatibility
+export AFL_QUIET=1
+export AFL_NO_UI=1
+export AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES=1
+export AFL_SKIP_CPUFREQ=1
 
 # ==================== Part 2: Download and Build zlib (dependency) ====================
 echo ""
 echo "Step 2: Building zlib dependency"
 if [ ! -d "${ZLIB_DIR}" ]; then
     cd "${BUILD_DIR}"
-    wget https://zlib.net/zlib-1.3.1.tar.gz
+    curl -L -O https://zlib.net/zlib-1.3.1.tar.gz
     tar xzf zlib-1.3.1.tar.gz
     mv zlib-1.3.1 zlib
 else
@@ -66,18 +75,20 @@ fi
 echo ""
 echo "Step 4: Building Part B - AFL++ without sanitizers"
 
-# Build zlib for Part B
+# Build zlib for Part B (without instrumentation - we'll instrument the harness instead)
 cd "${ZLIB_DIR}"
-make clean || true
-CC="${AFL_CC}" ./configure --prefix="${BUILD_DIR}/zlib-b"
+# Clean up any previous build artifacts
+make distclean 2>/dev/null || make clean 2>/dev/null || rm -f Makefile || true
+# Build with regular compiler
+./configure --prefix="${BUILD_DIR}/zlib-b" --static
 make -j$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 4)
 make install
 
-# Build LibPNG for Part B
+# Build LibPNG for Part B (without instrumentation - we'll instrument the harness instead)
 cd "${LIBPNG_DIR}"
-make clean || true
+# Clean up any previous build artifacts
+make distclean 2>/dev/null || make clean 2>/dev/null || rm -f Makefile || true
 ./configure \
-    CC="${AFL_CC}" \
     CFLAGS="-O3" \
     --prefix="${BUILD_DIR}/libpng-b" \
     --with-zlib-prefix="${BUILD_DIR}/zlib-b"
@@ -86,7 +97,7 @@ make install
 
 # Build harness for Part B
 echo "Building harness for Part B..."
-"${AFL_CC}" -O3 \
+clang -O3 \
     -I"${BUILD_DIR}/libpng-b/include" \
     -L"${BUILD_DIR}/libpng-b/lib" \
     -L"${BUILD_DIR}/zlib-b/lib" \
@@ -100,20 +111,21 @@ echo "Part B binary created: ${BUILD_DIR}/harness-b"
 echo ""
 echo "Step 5: Building Part C - AFL++ with ASAN and UBSAN"
 
-# Build zlib for Part C
+# Build zlib for Part C (with sanitizers only - AFL will instrument the harness)
 cd "${ZLIB_DIR}"
-make clean || true
-CC="${AFL_CC}" \
+# Clean up any previous build artifacts
+make distclean 2>/dev/null || make clean 2>/dev/null || rm -f Makefile || true
+# Build with sanitizers
 CFLAGS="-fsanitize=address,undefined -fno-omit-frame-pointer -g" \
-./configure --prefix="${BUILD_DIR}/zlib-c"
+./configure --prefix="${BUILD_DIR}/zlib-c" --static
 make -j$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 4)
 make install
 
-# Build LibPNG for Part C
+# Build LibPNG for Part C (with sanitizers only - AFL will instrument the harness)
 cd "${LIBPNG_DIR}"
-make clean || true
+# Clean up any previous build artifacts
+make distclean 2>/dev/null || make clean 2>/dev/null || rm -f Makefile || true
 ./configure \
-    CC="${AFL_CC}" \
     CFLAGS="-fsanitize=address,undefined -fno-omit-frame-pointer -g -O1" \
     LDFLAGS="-fsanitize=address,undefined" \
     --prefix="${BUILD_DIR}/libpng-c" \
@@ -123,7 +135,7 @@ make install
 
 # Build harness for Part C
 echo "Building harness for Part C..."
-"${AFL_CC}" \
+clang \
     -fsanitize=address,undefined \
     -fno-omit-frame-pointer \
     -g -O1 \
