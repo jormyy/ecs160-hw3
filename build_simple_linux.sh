@@ -85,8 +85,20 @@ echo "✓ Part B harness created: ${BUILD_DIR}/harness-b"
 # ==================== Build Part C harness (AFL + ASAN) ====================
 echo "Building Part C harness (AFL + ASAN + UBSAN)..."
 
-# Use clang directly with sanitizers, then use afl-clang-fast
-clang \
+# Detect available compiler (prefer clang, fallback to gcc)
+if command -v clang &> /dev/null; then
+    CC_ASAN=clang
+    echo "Using clang for ASAN build"
+elif command -v gcc &> /dev/null; then
+    CC_ASAN=gcc
+    echo "Using gcc for ASAN build"
+else
+    echo "ERROR: No C compiler found"
+    exit 1
+fi
+
+# Compile with sanitizers
+$CC_ASAN \
     -fsanitize=address,undefined \
     -fno-omit-frame-pointer \
     -fno-sanitize-recover=all \
@@ -98,7 +110,7 @@ clang \
     -o "${BUILD_DIR}/harness-asan.o"
 
 # Link with AFL runtime
-"${AFLPLUSPLUS_DIR}/afl-clang-fast" \
+"${AFLPLUSPLUS_DIR}/afl-gcc-fast" \
     -fsanitize=address,undefined \
     -fno-omit-frame-pointer \
     -g -O1 \
