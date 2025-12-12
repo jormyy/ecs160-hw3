@@ -109,8 +109,13 @@ $CC_ASAN \
     -c "${SCRIPT_DIR}/harness.c" \
     -o "${BUILD_DIR}/harness-asan.o"
 
-# Link with AFL runtime
-"${AFLPLUSPLUS_DIR}/afl-gcc-fast" \
+# Link with AFL runtime - use afl-clang-fast if available, otherwise afl-gcc
+AFL_LINKER="${AFLPLUSPLUS_DIR}/afl-clang-fast"
+if [ ! -f "$AFL_LINKER" ]; then
+    AFL_LINKER="${AFLPLUSPLUS_DIR}/afl-gcc"
+fi
+
+"$AFL_LINKER" \
     -fsanitize=address,undefined \
     -fno-omit-frame-pointer \
     -g -O1 \
