@@ -85,20 +85,23 @@ echo "✓ Part B harness created: ${BUILD_DIR}/harness-b"
 # ==================== Build Part C harness (AFL + ASAN) ====================
 echo "Building Part C harness (AFL + ASAN + UBSAN)..."
 
-# Detect available compiler (prefer clang, fallback to gcc)
-if command -v clang &> /dev/null; then
-    CC_ASAN=clang
-    echo "Using clang for ASAN build"
-elif command -v gcc &> /dev/null; then
-    CC_ASAN=gcc
-    echo "Using gcc for ASAN build"
+# Use AFL compiler - prefer afl-clang-fast, fallback to afl-gcc
+if [ -f "${AFLPLUSPLUS_DIR}/afl-clang-fast" ]; then
+    AFL_CC="${AFLPLUSPLUS_DIR}/afl-clang-fast"
+    echo "Using afl-clang-fast for ASAN build"
+elif [ -f "${AFLPLUSPLUS_DIR}/afl-gcc" ]; then
+    AFL_CC="${AFLPLUSPLUS_DIR}/afl-gcc"
+    echo "Using afl-gcc for ASAN build"
 else
-    echo "ERROR: No C compiler found"
+    echo "ERROR: No AFL compiler found"
     exit 1
 fi
 
-# Compile with sanitizers
-$CC_ASAN \
+# Compile and link with AFL instrumentation + sanitizers
+export AFL_USE_ASAN=1
+export AFL_USE_UBSAN=1
+
+"$AFL_CC" \
     -fsanitize=address,undefined \
     -fno-omit-frame-pointer \
     -fno-sanitize-recover=all \
@@ -106,26 +109,12 @@ $CC_ASAN \
     -I"${BUILD_DIR}/libpng-install/include" \
     -L"${BUILD_DIR}/libpng-install/lib" \
     -L"${BUILD_DIR}/zlib-install/lib" \
-    -c "${SCRIPT_DIR}/harness.c" \
-    -o "${BUILD_DIR}/harness-asan.o"
-
-# Link with AFL runtime - use afl-clang-fast if available, otherwise afl-gcc
-AFL_LINKER="${AFLPLUSPLUS_DIR}/afl-clang-fast"
-if [ ! -f "$AFL_LINKER" ]; then
-    AFL_LINKER="${AFLPLUSPLUS_DIR}/afl-gcc"
-fi
-
-"$AFL_LINKER" \
-    -fsanitize=address,undefined \
-    -fno-omit-frame-pointer \
-    -g -O1 \
-    "${BUILD_DIR}/harness-asan.o" \
-    -L"${BUILD_DIR}/libpng-install/lib" \
-    -L"${BUILD_DIR}/zlib-install/lib" \
+    "${SCRIPT_DIR}/harness.c" \
     -lpng -lz \
     -o "${BUILD_DIR}/harness-c-linux"
 
-rm "${BUILD_DIR}/harness-asan.o"
+unset AFL_USE_ASAN
+unset AFL_USE_UBSAN
 
 echo "✓ Part C harness created: ${BUILD_DIR}/harness-c-linux"
 
