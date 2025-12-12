@@ -44,9 +44,14 @@ echo ""
 echo "Step 2: Building zlib dependency"
 if [ ! -d "${ZLIB_DIR}" ]; then
     cd "${BUILD_DIR}"
-    wget https://zlib.net/zlib-1.3.1.tar.gz
+    if command -v wget &> /dev/null; then
+        wget https://zlib.net/zlib-1.3.1.tar.gz
+    else
+        curl -L -O https://zlib.net/zlib-1.3.1.tar.gz
+    fi
     tar xzf zlib-1.3.1.tar.gz
     mv zlib-1.3.1 zlib
+    rm zlib-1.3.1.tar.gz
 else
     echo "zlib directory already exists, using existing installation"
 fi
