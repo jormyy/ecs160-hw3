@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# Linux-specific build script with full ASAN+UBSAN support
+# Use this on Ubuntu/Debian/any Linux VM
+
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -8,7 +11,7 @@ AFLPLUSPLUS_DIR="${BUILD_DIR}/AFLplusplus"
 LIBPNG_DIR="${BUILD_DIR}/libpng"
 ZLIB_DIR="${BUILD_DIR}/zlib"
 
-echo "===== ECS160 HW3: LibPNG Fuzzing Setup ====="
+echo "===== ECS160 HW3: Linux Build with Full ASAN+UBSAN ====="
 
 # Create build directory
 mkdir -p "${BUILD_DIR}"
@@ -28,29 +31,20 @@ fi
 
 echo "Building AFL++..."
 make clean || true
-# Set LLVM_CONFIG to use Homebrew LLVM if available
-if [ -x "/opt/homebrew/opt/llvm/bin/llvm-config" ]; then
-    export LLVM_CONFIG=/opt/homebrew/opt/llvm/bin/llvm-config
-fi
-make -j$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 4)
+make -j$(nproc)
 cd "${SCRIPT_DIR}"
 
 # Set up AFL++ environment variables
 export PATH="${AFLPLUSPLUS_DIR}:${PATH}"
 export AFL_CC="${AFLPLUSPLUS_DIR}/afl-clang-fast"
 export AFL_CXX="${AFLPLUSPLUS_DIR}/afl-clang-fast++"
-# AFL configuration - these settings help with macOS compatibility
-export AFL_QUIET=1
-export AFL_NO_UI=1
-export AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES=1
-export AFL_SKIP_CPUFREQ=1
 
 # ==================== Part 2: Download and Build zlib (dependency) ====================
 echo ""
 echo "Step 2: Building zlib dependency"
 if [ ! -d "${ZLIB_DIR}" ]; then
     cd "${BUILD_DIR}"
-    curl -L -O https://zlib.net/zlib-1.3.1.tar.gz
+    wget https://zlib.net/zlib-1.3.1.tar.gz
     tar xzf zlib-1.3.1.tar.gz
     mv zlib-1.3.1 zlib
 else
@@ -64,7 +58,6 @@ if [ ! -d "${LIBPNG_DIR}" ]; then
     cd "${BUILD_DIR}"
     git clone https://github.com/pnggroup/libpng.git
     cd libpng
-    # Use a stable version
     git checkout v1.6.43
 else
     echo "LibPNG directory already exists, using existing installation"
@@ -75,24 +68,21 @@ fi
 echo ""
 echo "Step 4: Building Part B - AFL++ without sanitizers"
 
-# Build zlib for Part B (without instrumentation - we'll instrument the harness instead)
+# Build zlib for Part B
 cd "${ZLIB_DIR}"
-# Clean up any previous build artifacts
 make distclean 2>/dev/null || make clean 2>/dev/null || rm -f Makefile || true
-# Build with regular compiler
 ./configure --prefix="${BUILD_DIR}/zlib-b" --static
-make -j$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 4)
+make -j$(nproc)
 make install
 
-# Build LibPNG for Part B (without instrumentation - we'll instrument the harness instead)
+# Build LibPNG for Part B
 cd "${LIBPNG_DIR}"
-# Clean up any previous build artifacts
 make distclean 2>/dev/null || make clean 2>/dev/null || rm -f Makefile || true
 ./configure \
     CFLAGS="-O3" \
     --prefix="${BUILD_DIR}/libpng-b" \
     --with-zlib-prefix="${BUILD_DIR}/zlib-b"
-make -j$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 4)
+make -j$(nproc)
 make install
 
 # Build harness for Part B
@@ -109,32 +99,30 @@ echo "Part B binary created: ${BUILD_DIR}/harness-b"
 
 # ==================== Part 5: Build Configuration C (AFL++ with ASAN/UBSAN) ====================
 echo ""
-echo "Step 5: Building Part C - AFL++ with ASAN and UBSAN"
+echo "Step 5: Building Part C - AFL++ with FULL ASAN and UBSAN (Linux)"
 
-# Build zlib for Part C (with sanitizers only - AFL will instrument the harness)
+# Build zlib for Part C with sanitizers
 cd "${ZLIB_DIR}"
-# Clean up any previous build artifacts
 make distclean 2>/dev/null || make clean 2>/dev/null || rm -f Makefile || true
-# Build with sanitizers
-CFLAGS="-fsanitize=address,undefined -fno-omit-frame-pointer -g" \
+CC=clang CFLAGS="-fsanitize=address,undefined -fno-omit-frame-pointer -g" \
 ./configure --prefix="${BUILD_DIR}/zlib-c" --static
-make -j$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 4)
+make -j$(nproc)
 make install
 
-# Build LibPNG for Part C (with sanitizers only - AFL will instrument the harness)
+# Build LibPNG for Part C with sanitizers
 cd "${LIBPNG_DIR}"
-# Clean up any previous build artifacts
 make distclean 2>/dev/null || make clean 2>/dev/null || rm -f Makefile || true
 ./configure \
+    CC=clang \
     CFLAGS="-fsanitize=address,undefined -fno-omit-frame-pointer -g -O1" \
     LDFLAGS="-fsanitize=address,undefined" \
     --prefix="${BUILD_DIR}/libpng-c" \
     --with-zlib-prefix="${BUILD_DIR}/zlib-c"
-make -j$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 4)
+make -j$(nproc)
 make install
 
-# Build harness for Part C
-echo "Building harness for Part C..."
+# Build harness for Part C with FULL ASAN+UBSAN
+echo "Building harness for Part C with ASAN+UBSAN..."
 AFL_USE_ASAN=1 AFL_USE_UBSAN=1 "${AFLPLUSPLUS_DIR}/afl-clang-fast" \
     -fsanitize=address,undefined \
     -fno-omit-frame-pointer \
@@ -144,9 +132,18 @@ AFL_USE_ASAN=1 AFL_USE_UBSAN=1 "${AFLPLUSPLUS_DIR}/afl-clang-fast" \
     -L"${BUILD_DIR}/zlib-c/lib" \
     "${SCRIPT_DIR}/harness.c" \
     -lpng -lz \
-    -o "${BUILD_DIR}/harness-c"
+    -o "${BUILD_DIR}/harness-c-linux"
 
-echo "Part C binary created: ${BUILD_DIR}/harness-c"
+echo "Part C binary created: ${BUILD_DIR}/harness-c-linux (with ASAN+UBSAN)"
+
+# Test the binary
+echo ""
+echo "Testing harness-c-linux..."
+if "${BUILD_DIR}/harness-c-linux" "${BUILD_DIR}/seeds/basn0g01.png" /tmp/test-asan.png 2>&1 | grep -q "ERROR:"; then
+    echo "⚠️  ASAN detected an error (this is expected if testing)"
+else
+    echo "✓ Harness runs successfully with ASAN+UBSAN"
+fi
 
 # ==================== Part 6: Create seed directory ====================
 echo ""
@@ -159,15 +156,10 @@ echo "===== Build Complete ====="
 echo ""
 echo "Binaries created:"
 echo "  Part B (AFL++ only):           ${BUILD_DIR}/harness-b"
-echo "  Part C (AFL++ + ASAN/UBSAN):   ${BUILD_DIR}/harness-c"
-echo ""
-echo "Directories:"
-echo "  AFL++:        ${AFLPLUSPLUS_DIR}"
-echo "  LibPNG:       ${LIBPNG_DIR}"
-echo "  Seeds:        ${BUILD_DIR}/seeds (place your 10 PNG files here)"
-echo "  Empty seeds:  ${BUILD_DIR}/empty-seeds (for no-seed fuzzing)"
+echo "  Part C (AFL++ + ASAN/UBSAN):   ${BUILD_DIR}/harness-c-linux"
 echo ""
 echo "Next steps:"
-echo "1. Download 10 PNG files and place them in ${BUILD_DIR}/seeds/"
-echo "2. Run fuzzing commands (see run_fuzzing.sh)"
+echo "1. Download seeds: ./download_seeds.sh"
+echo "2. Build custom mutator: ./build_custom_mutator.sh"
+echo "3. Run fuzzing: ./run_all_parallel_linux.sh"
 echo ""

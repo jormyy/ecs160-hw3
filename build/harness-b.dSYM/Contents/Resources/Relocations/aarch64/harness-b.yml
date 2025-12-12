@@ -1,0 +1,5 @@
+---
+triple:          'arm64-apple-darwin'
+binary-path:     '/Users/jorm/Documents/ecs160-hw3/build/harness-b'
+relocations:     []
+...

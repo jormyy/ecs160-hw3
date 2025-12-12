@@ -1,0 +1,10 @@
+# environment variables:
+AFL_CUSTOM_MUTATOR_LIBRARY=/Users/jorm/Documents/ecs160-hw3/build/png_mutator.so
+AFL_CUSTOM_INFO_PROGRAM=/Users/jorm/Documents/ecs160-hw3/build/harness-b
+AFL_CUSTOM_INFO_PROGRAM_ARGV=@@ /tmp/out.png
+AFL_CUSTOM_INFO_OUT=/Users/jorm/Documents/ecs160-hw3/build/output-d-custom-mutator/default
+AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES=1
+AFL_MAP_SIZE=65536
+AFL_SKIP_CPUFREQ=1
+# command line:
+'/Users/jorm/Documents/ecs160-hw3/build/AFLplusplus/afl-fuzz' '-i' '/Users/jorm/Documents/ecs160-hw3/build/seeds' '-o' '/Users/jorm/Documents/ecs160-hw3/build/output-d-custom-mutator' '-V' '3600' '--' '/Users/jorm/Documents/ecs160-hw3/build/harness-b' '@@' '/tmp/out.png'
